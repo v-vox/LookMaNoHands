@@ -10,9 +10,7 @@ from PIL import Image, ImageDraw
 
 def create_icon():
     """Create an icon for the system tray."""
-    image = Image.new('RGBA', (64, 64), (255, 255, 255, 0))
-    draw = ImageDraw.Draw(image)
-    draw.rectangle((0, 0, 64, 64), fill="green")
+    image = Image.open('lulu.ico')
     return image
 
 
