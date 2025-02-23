@@ -39,7 +39,7 @@ class FaceDirectionTracker:
         
         self.cap = None
         self.blink_count = 0
-        self.blink_threshold = 0.2  # EAR 
+        self.blink_threshold = 0.24  # EAR 
         self.blink_duration = 5  
         self.blink_frame_counter = 0
         
