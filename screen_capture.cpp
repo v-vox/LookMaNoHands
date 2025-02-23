@@ -3,6 +3,9 @@
 #include <opencv2/features2d.hpp>
 #include <opencv2/highgui.hpp>
 
+#include <thread>
+#include <chrono>
+
 #include <windows.h>
 #include <iostream>
 
@@ -44,8 +47,8 @@ Mat captureScreen() {
 // Function to detect MSER regions and return bounding boxes
 vector<pair<Point, Point>> detectMSERBoxes(const Mat& image, int x, int y) {
     Ptr<MSER> mser = MSER::create();
-    mser->setDelta(5);
-    mser->setMinArea(20);
+    mser->setDelta(4);
+    mser->setMinArea(15);
     mser->setMaxArea(500);
     mser->setMaxVariation(0.25);
     mser->setMinDiversity(0.1);
@@ -90,6 +93,9 @@ void clickAt(Point p) {
     SetCursorPos(p.x, p.y);
     mouse_event(MOUSEEVENTF_LEFTDOWN, p.x, p.y, 0, 0);
     mouse_event(MOUSEEVENTF_LEFTUP, p.x, p.y, 0, 0);
+	mouse_event(MOUSEEVENTF_LEFTDOWN, p.x, p.y, 0, 0);
+    mouse_event(MOUSEEVENTF_LEFTUP, p.x, p.y, 0, 0);
+	this_thread::sleep_for(chrono::milliseconds(50));
 	mouse_event(MOUSEEVENTF_LEFTDOWN, p.x, p.y, 0, 0);
     mouse_event(MOUSEEVENTF_LEFTUP, p.x, p.y, 0, 0);
 }
@@ -144,7 +150,8 @@ void drawCircle(HWND hwnd, Point p) {
     SelectObject(hdc, hBrush);
 
     // Draw a circle at the specified position
-    Ellipse(hdc, p.x - 10, p.y - 10, p.x + 10, p.y + 10);
+	int size = 6;
+    Ellipse(hdc, p.x - size, p.y - size, p.x + size, p.y + size);
 
     DeleteObject(hBrush);
     ReleaseDC(hwnd, hdc);
@@ -179,6 +186,8 @@ int main() {
         Point mousePos(cursorPos.x, cursorPos.y);
 		
         if (captureFrame) {
+			this_thread::sleep_for(chrono::milliseconds(50));
+			clearWindow(hwnd);  // Clear the window before drawing the new circle
             screen = captureScreen();
 			
 			int boxSize = 200;
@@ -201,7 +210,7 @@ int main() {
 			
         } else {
             Point shadowCursor = snapToNearestBox(boxes, mousePos, 100);
-            clearWindow(hwnd);  // Clear the window before drawing the new circle
+            
             drawCircle(hwnd, shadowCursor);  // Draw circle at the position of the nearest bounding box
         }
 
