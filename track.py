@@ -1,6 +1,9 @@
 import cv2
 import numpy as np
 from mpTrack import FaceDirectionTracker
+import subprocess
+exe_path = "b.exe"
+
 import ctypes
 import time
 
@@ -16,15 +19,16 @@ class FaceTrackerWithSmoothing:
         self.prev_y_angle = None
         
         # Parameters for axis locking and movement threshold
-        self.axis_lock_threshold = 3  # Ratio threshold for determining primary axis
-        self.movement_threshold = 0.7    # Minimum angle change required for movement
-        self.movement_threshold2 = 0.3    # Minimum angle change required for movement
+        self.axis_lock_threshold = 1  # Ratio threshold for determining primary axis
+        self.movement_threshold = 0.6    # Minimum angle change required for movement   
+        self.very_slow_threshold = 0.15   # Threshold for completely stopping cursor
         
-        # New parameters for time-based movement detection
+        # Parameters for time-based movement detection
         self.low_movement_start_time = None
-        self.low_movement_duration_threshold = 0.2 # Duration in seconds
+        self.very_low_movement_start_time = None
+        self.low_movement_duration_threshold = 0.2  # Duration in seconds
         self.is_movement_locked = False
-        self.is_movement_locked2 = False
+        self.is_completely_stopped = False
     
     def smooth_angle(self, current_angle, prev_angle):
         """ Smooth the angle with a moving average. """
@@ -42,20 +46,30 @@ class FaceTrackerWithSmoothing:
         current_time = time.time()
         movement_magnitude = (x_change ** 2 + y_change ** 2) ** 0.5
 
+        # Check for very slow movement first
+        if movement_magnitude < self.very_slow_threshold:
+            if self.very_low_movement_start_time is None:
+                self.very_low_movement_start_time = current_time
+            elif current_time - self.very_low_movement_start_time >= self.low_movement_duration_threshold:
+                self.is_completely_stopped = True
+                self.is_movement_locked = False
+                return True, True
+        else:
+            self.very_low_movement_start_time = None
+            self.is_completely_stopped = False
+
+        # Check for slow movement
         if movement_magnitude < self.movement_threshold:
             if self.low_movement_start_time is None:
                 self.low_movement_start_time = current_time
-            elif movement_magnitude < self.movement_threshold2:
-                self.is_movement_locked2 = True
             elif current_time - self.low_movement_start_time >= self.low_movement_duration_threshold:
                 self.is_movement_locked = True
         else:
             # Reset everything when movement is significant
             self.low_movement_start_time = None
             self.is_movement_locked = False  
-            self.is_movement_locked2 = False  
 
-        return self.is_movement_locked, self.is_movement_locked2
+        return self.is_movement_locked, self.is_completely_stopped
 
     def apply_axis_lock(self, x_change, y_change):
         """Apply axis locking when movement is primarily along one axis."""
@@ -63,8 +77,11 @@ class FaceTrackerWithSmoothing:
         y_abs = abs(y_change)
         
         # Check if we should lock movement due to time-based threshold
-        slow, lock = self.check_movement_threshold(x_change, y_change)
-        if slow:
+        slow, stopped = self.check_movement_threshold(x_change, y_change)
+        
+        if stopped:
+            return 0, 0  # No movement at all
+        elif slow:
             self.smoothing_factor = 0.06
         else:
             self.smoothing_factor = 0.3
@@ -97,7 +114,7 @@ class FaceTrackerWithSmoothing:
             screen_position = screen_width - screen_position  # Invert horizontal direction
         elif axis == 'y':
             # Invert the y-axis mapping (flip up-down) to correct inversion
-            screen_position = (angle + 20) / (40) * screen_height
+            screen_position = (angle + 19) / (38) * screen_height
         
         # Apply sensitivity adjustment
         if axis == 'x':
@@ -132,7 +149,6 @@ def move_mouse(x, y):
     """Move the mouse to the specified coordinates using the Windows API."""
     user32.SetCursorPos(x, y)
      
-
 def main():
     # Initialize tracker with visualization
     tracker = FaceDirectionTracker(show_visualization=False)  # Turn off visualization for better performance
@@ -144,7 +160,7 @@ def main():
         y_sensitivity=3
     )
     
-    tracker_with_smoothing.calibrate_sensitivity(x_factor=1.5, y_factor=2)
+    tracker_with_smoothing.calibrate_sensitivity(x_factor=1.5, y_factor=3)
 
     try:
         tracker.start_camera(0) 
@@ -153,23 +169,24 @@ def main():
         while True:
             angles = tracker.get_frame()
             
-
             if angles is not None:
                 x_angle, y_angle, blinked = angles
                 
                 # Update angles with smoothing, axis locking, and movement threshold
                 final_x, final_y = tracker_with_smoothing.update_angles(x_angle, y_angle)
                 
-                # Map smoothed angles to screen coordinates
-                screen_x = tracker_with_smoothing.map_angle_to_screen(final_x, axis='x')
-                screen_y = tracker_with_smoothing.map_angle_to_screen(final_y, axis='y')
-                
-                # Move the mouse cursor to the calculated position using the Windows API
-                move_mouse(screen_x, screen_y)
+                # Only move the cursor if we're not completely stopped
+                if not tracker_with_smoothing.is_completely_stopped:
+                    # Map smoothed angles to screen coordinates
+                    screen_x = tracker_with_smoothing.map_angle_to_screen(final_x, axis='x')
+                    screen_y = tracker_with_smoothing.map_angle_to_screen(final_y, axis='y')
+                    
+                    # Move the mouse cursor to the calculated position using the Windows API
+                    move_mouse(screen_x, screen_y)
 
                 if blinked:
-                    user32.mouse_event(2, 0, 0, 0, 0)  # Left button down
-                    user32.mouse_event(4, 0, 0, 0, 0)  # Left button up
+                    subprocess.run([exe_path], check=True)
+                    print('clicked')
             
             # Optional: Check for 'q' key to quit
             if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -183,4 +200,4 @@ def main():
         cv2.destroyAllWindows()
 
 if __name__ == "__main__":
-    main()
+    main()  
