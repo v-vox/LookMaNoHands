@@ -19,6 +19,12 @@ def create_red_icon():
     draw.rectangle((0, 0, 64, 64), fill="red")
     return image
 
+def create_yellow_icon():
+    image = Image.new('RGBA', (64, 64), (255, 255, 255, 0))
+    draw = ImageDraw.Draw(image)
+    draw.rectangle((0, 0, 64, 64), fill="yellow")
+    return image
+
 
 def handleText(text):
     text = text.lower()
@@ -64,6 +70,8 @@ def extract_last_number(text):
         return int(numbers[-1])
     return 1  # Return None if no number is found
 
+
+
 speechToggle = False
 
 def recognize_speech(icon):
@@ -72,7 +80,10 @@ def recognize_speech(icon):
     recognizer = sr.Recognizer()
     with sr.Microphone() as source:
         print("Say something...")
-        icon.icon = create_green_icon()
+        if speechToggle:
+            icon.icon = create_green_icon()
+        else:
+            icon.icon = create_yellow_icon()
         recognizer.adjust_for_ambient_noise(source)
         audio = recognizer.listen(source)
         icon.icon = create_red_icon()
@@ -113,4 +124,4 @@ def setup_tray():
 
 # Main function
 if __name__ == "__main__":
-    setup_tray()
+    setup_tray()    
